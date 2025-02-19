@@ -72,39 +72,24 @@ clang-19 -O0 -c coverage_runtime.c -o coverage_runtime.o
 
 ### 3. Compile Your Program with Instrumentation
 
-Assuming your C/C++ project is split into multiple modules (e.g., `main.c`, `branch.c`, `loop.c`), perform the following steps:
+To build and instrument your project without modifying its Makefile:
 
-1. **Generate LLVM Bitcode for Each Module:**
-
+1. **Build the Instrumentation Components:**
+   - **Instrumentation Pass Plugin:**  
+     ```bash
+     clang++-19 -fPIC -shared CodeCoveragePass.cpp -o libCodeCoveragePass.so `llvm-config-19 --cxxflags --ldflags --system-libs --libs all`
+     ```
+   - **Runtime Helper:**  
+     ```bash
+     clang-19 -O0 -c coverage_runtime.c -o coverage_runtime.o
+     ```
+2. **Set Environment Variables:**  
+   In your shell, run:
    ```bash
-   clang-19 -O0 -emit-llvm -c main.c -o main.bc
-   clang-19 -O0 -emit-llvm -c branch.c -o branch.bc
-   clang-19 -O0 -emit-llvm -c loop.c -o loop.bc
+   export CC=/full/path/to/clang_instrument.sh
    ```
 
-2. **Link the Bitcode Files:**
-
-   ```bash
-   llvm-link-19 main.bc branch.bc loop.bc -o program.bc
-   ```
-
-3. **Run the Instrumentation Pass:**
-
-   Use LLVM's `opt` tool to apply the pass:
-   
-   ```bash
-   opt-19 -load-pass-plugin=./libCodeCoveragePass.so -passes=code-coverage-pass program.bc -o instrumented.bc
-   ```
-
-4. **Generate the Final Executable:**
-
-   Link the instrumented bitcode with the runtime helper:
-
-   ```bash
-   clang-19 instrumented.bc coverage_runtime.o -o instrumented_program
-   ```
-
-### 4. Executing the Instrumented Program
+### 4. How to Run Instrumented Programs and Get the Trace
 
 Below is an example showing how to get the collected trace.
 
