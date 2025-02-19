@@ -106,6 +106,8 @@ Assuming your C/C++ project is split into multiple modules (e.g., `main.c`, `bra
 
 ### 4. Executing the Instrumented Program
 
+Below is an example showing how to get the collected trace.
+
 1. **Initialize Shared Memory:**  
    Run the provided utility (e.g., `init_shm`) to create and initialize a shared memory file (e.g., `/tmp/coverage_shm.bin`) of 4KB filled with zeros.
 
