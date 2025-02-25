@@ -76,31 +76,17 @@ The Makefile automatically handles:
 
 ### 2. Using the Instrumentation Scripts
 
-Two wrapper scripts are provided for easy integration:
-
-#### For C Projects (`path-clang`):
+Simply set the environment variables and run `make`:
 ```bash
-# Set as your C compiler
 export CC=/path/to/path-clang
+export CXX=/path/to/path-clang++
+make
+```
 
-# Or use directly
+Or use directly
+```bash
 ./path-clang -O2 -c example.c -o example.o
 ```
-
-#### For C++ Projects (`path-clang++`):
-```bash
-# Set as your C++ compiler
-export CXX=/path/to/path-clang++
-
-# Or use directly
-./path-clang++ -O2 -c example.cpp -o example.o
-```
-
-Both scripts support:
-- Individual file compilation (`-c`)
-- Full program linking
-- All standard compiler flags
-- Parallel compilation (e.g., with `make -j`)
 
 ### Environment Variables
 
