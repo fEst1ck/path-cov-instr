@@ -17,9 +17,10 @@ CFLAGS := -Wall -Wextra -fPIC
 # Output files
 PASS_LIB := libCodeCoveragePass.so
 RUNTIME_OBJ := coverage_runtime.o
+UTILS := init_shm read_shm
 
 # Default target
-all: $(PASS_LIB) $(RUNTIME_OBJ)
+all: $(PASS_LIB) $(RUNTIME_OBJ) $(UTILS)
 
 # Build the instrumentation pass
 $(PASS_LIB): CodeCoveragePass.cpp
@@ -29,8 +30,15 @@ $(PASS_LIB): CodeCoveragePass.cpp
 $(RUNTIME_OBJ): coverage_runtime.c
 	$(CC) $(CFLAGS) -O0 -c $< -o $@
 
+# Build shared memory utilities
+init_shm: init_shm.c
+	$(CC) $(CFLAGS) $< -o $@
+
+read_shm: read_shm.c
+	$(CC) $(CFLAGS) $< -o $@
+
 # Clean build artifacts
 clean:
-	rm -f $(PASS_LIB) $(RUNTIME_OBJ)
+	rm -f $(PASS_LIB) $(RUNTIME_OBJ) $(UTILS)
 
 .PHONY: all clean 

@@ -55,7 +55,7 @@ This project implements an LLVM pass that instruments programs to collect runtim
 
 ### 1. Build the Components
 
-The project includes a Makefile to build both the instrumentation pass and runtime:
+The project includes a Makefile to build the instrumentation pass, runtime, and utilities:
 
 ```bash
 # Build everything
@@ -64,15 +64,12 @@ make
 # Or build components individually
 make libCodeCoveragePass.so  # Just the pass
 make coverage_runtime.o      # Just the runtime
+make init_shm                # Shared memory initialization utility
+make read_shm                # Shared memory reading utility
 
 # Clean build artifacts
 make clean
 ```
-
-The Makefile automatically handles:
-- LLVM dependencies and flags
-- Position-independent code compilation
-- Proper compiler selection
 
 ### 2. Using the Instrumentation Scripts
 
@@ -83,10 +80,32 @@ export CXX=/path/to/path-clang++
 make
 ```
 
-Or use directly
+Or use directly:
 ```bash
 ./path-clang -O2 -c example.c -o example.o
 ```
+
+### 3. Running Instrumented Programs
+
+We provide utility programs for printing the collected execution trace. This is an easy way to check if a program is properly instrumented.
+
+1. **Initialize Shared Memory:**
+   ```bash
+   ./init_shm
+   ```
+   This creates a shared memory segment for storing the execution trace.
+
+2. **Run Your Instrumented Program:**
+   ```bash
+   ./your_program [args...]
+   ```
+   The program will record basic block execution in the shared memory.
+
+3. **Read the Execution Trace:**
+   ```bash
+   ./read_shm
+   ```
+   This displays the sequence of executed basic blocks.
 
 ### Environment Variables
 
