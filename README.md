@@ -53,23 +53,28 @@ This project implements an LLVM pass that instruments programs to collect runtim
 
 ## Compilation and Usage
 
-### 1. Build the Instrumentation Pass Plugin
+### 1. Build the Components
 
-The pass is implemented in `CodeCoveragePass.cpp`. To compile it as a shared library (using LLVM 19):
-
-```bash
-clang++ -fPIC -shared CodeCoveragePass.cpp -o libCodeCoveragePass.so `llvm-config --cxxflags --ldflags --system-libs --libs all`
-```
-
-### 2. Build the Runtime Support Library
-
-Compile the runtime helper:
+The project includes a Makefile to build both the instrumentation pass and runtime:
 
 ```bash
-clang -fPIC -c coverage_runtime.c -o coverage_runtime.o
+# Build everything
+make
+
+# Or build components individually
+make libCodeCoveragePass.so  # Just the pass
+make coverage_runtime.o      # Just the runtime
+
+# Clean build artifacts
+make clean
 ```
 
-### 3. Using the Instrumentation Scripts
+The Makefile automatically handles:
+- LLVM dependencies and flags
+- Position-independent code compilation
+- Proper compiler selection
+
+### 2. Using the Instrumentation Scripts
 
 Two wrapper scripts are provided for easy integration:
 
