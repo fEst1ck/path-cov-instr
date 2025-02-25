@@ -14,6 +14,11 @@
 #include <map>
 #include <vector>
 #include <string>
+#include <fstream>
+#include <cstdlib>
+#include <fcntl.h>
+#include <unistd.h>
+#include <system_error>
 
 using namespace llvm;
 
@@ -28,9 +33,121 @@ struct CodeCoveragePass : public PassInfoMixin<CodeCoveragePass> {
   };
   std::map<std::string, CFGInfo> FunctionCFG;
 
-  PreservedAnalyses run(Module &M, ModuleAnalysisManager &) {
-    unsigned currentID = 0;
+  // Get environment variable value with error checking
+  std::string getEnvVar(const char* name) {
+    const char* value = std::getenv(name);
+    if (!value) {
+      errs() << "Error: Environment variable " << name << " is not set\n";
+      return "";
+    }
+    return std::string(value);
+  }
 
+  // Get next block ID with file locking
+  unsigned getNextBlockID() {
+    std::string counterFile = getEnvVar("BLOCK_COUNTER_FILE");
+    if (counterFile.empty()) return 0;
+
+    // Open the file for reading and writing
+    int fd = open(counterFile.c_str(), O_RDWR | O_CREAT, 0666);
+    if (fd == -1) {
+      errs() << "Error: Cannot open counter file: " << counterFile << "\n";
+      return 0;
+    }
+
+    // Create file lock structure
+    struct flock fl;
+    fl.l_type = F_WRLCK;    // Write lock
+    fl.l_whence = SEEK_SET;  // From beginning of file
+    fl.l_start = 0;          // Offset from l_whence
+    fl.l_len = 0;           // Lock whole file
+    fl.l_pid = getpid();    // Process ID
+
+    // Acquire exclusive lock
+    if (fcntl(fd, F_SETLKW, &fl) == -1) {
+      errs() << "Error: Cannot lock counter file\n";
+      close(fd);
+      return 0;
+    }
+
+    // Read current value
+    char buf[32];
+    unsigned currentID = 0;
+    ssize_t bytes_read = read(fd, buf, sizeof(buf) - 1);
+    if (bytes_read > 0) {
+      buf[bytes_read] = '\0';
+      currentID = std::stoul(buf);
+    }
+
+    // Increment the counter
+    currentID++;
+
+    // Write back the incremented value
+    std::string newVal = std::to_string(currentID);
+    lseek(fd, 0, SEEK_SET);
+    write(fd, newVal.c_str(), newVal.length());
+    ftruncate(fd, newVal.length());  // Truncate file to new length
+
+    // Release the lock
+    fl.l_type = F_UNLCK;
+    fcntl(fd, F_SETLK, &fl);
+
+    // Close file
+    close(fd);
+
+    return currentID - 1;  // Return the ID we're using (not the next one)
+  }
+
+  // Append CFG information to the CFG file
+  void appendCFGInfo(const Module &M) {
+    std::string cfgFile = getEnvVar("CFG_FILE");
+    if (cfgFile.empty()) return;
+
+    std::error_code EC;
+    bool isNewFile = !sys::fs::exists(cfgFile);
+    
+    // Open file in append mode
+    raw_fd_ostream Out(cfgFile, EC, sys::fs::OF_Append | sys::fs::OF_Text);
+    if (EC) {
+      errs() << "Error opening CFG file for writing: " << EC.message() << "\n";
+      return;
+    }
+
+    // If this is a new file, write the opening bracket
+    if (isNewFile) {
+      Out << "{\n  \"modules\": [\n";
+    } else {
+      // If not a new file, add a comma for the new module
+      Out << ",\n";
+    }
+
+    // Write module information
+    Out << "    {\n";
+    Out << "      \"module_name\": \"" << M.getName().str() << "\",\n";
+    Out << "      \"functions\": [\n";
+    
+    bool firstFunc = true;
+    for (auto &entry : FunctionCFG) {
+      if (!firstFunc)
+        Out << ",\n";
+      firstFunc = false;
+      Out << "        {\n";
+      Out << "          \"name\": \"" << entry.first << "\",\n";
+      Out << "          \"entry_block\": " << entry.second.EntryID << ",\n";
+      Out << "          \"exit_blocks\": [";
+      for (size_t i = 0; i < entry.second.ExitIDs.size(); ++i) {
+        Out << entry.second.ExitIDs[i];
+        if (i + 1 < entry.second.ExitIDs.size())
+          Out << ", ";
+      }
+      Out << "]\n        }";
+    }
+    Out << "\n      ]\n    }";
+    
+    Out.close();
+  }
+
+  PreservedAnalyses run(Module &M, ModuleAnalysisManager &) {
     // 1. Traverse the module to assign unique IDs and collect CFG data.
     for (Function &F : M) {
       if (F.isDeclaration())
@@ -38,22 +155,23 @@ struct CodeCoveragePass : public PassInfoMixin<CodeCoveragePass> {
       bool firstBlock = true;
       CFGInfo cfg;
       for (BasicBlock &BB : F) {
-        BlockIDMap[&BB] = currentID;
+        // Get a new unique block ID with locking
+        unsigned blockID = getNextBlockID();
+        BlockIDMap[&BB] = blockID;
+        
         if (firstBlock) {
-          cfg.EntryID = currentID;
+          cfg.EntryID = blockID;
           firstBlock = false;
         }
         // A block is considered an exit if its terminator is a return, resume, or unreachable.
         Instruction *TI = BB.getTerminator();
         if (isa<ReturnInst>(TI) || isa<ResumeInst>(TI) || isa<UnreachableInst>(TI))
-          cfg.ExitIDs.push_back(currentID);
-        currentID++;
+          cfg.ExitIDs.push_back(blockID);
       }
       FunctionCFG[F.getName().str()] = cfg;
     }
 
     // 2. Declare the external helper function __coverage_push.
-    // The function signature is: void __coverage_push(uint32_t)
     LLVMContext &Ctx = M.getContext();
     Type *VoidTy = Type::getVoidTy(Ctx);
     Type *Int32Ty = Type::getInt32Ty(Ctx);
@@ -74,53 +192,37 @@ struct CodeCoveragePass : public PassInfoMixin<CodeCoveragePass> {
       }
     }
 
-    // 4. Write the collected CFG information to an external file (cfg.json).
-    std::error_code EC;
-    raw_fd_ostream Out("cfg.json", EC, sys::fs::OF_Text);
-    if (EC) {
-      errs() << "Error opening cfg.json for writing: " << EC.message() << "\n";
-    } else {
-      Out << "{\n  \"functions\": [\n";
-      bool firstFunc = true;
-      for (auto &entry : FunctionCFG) {
-        if (!firstFunc)
-          Out << ",\n";
-        firstFunc = false;
-        Out << "    {\n";
-        Out << "      \"name\": \"" << entry.first << "\",\n";
-        Out << "      \"entry_block\": " << entry.second.EntryID << ",\n";
-        Out << "      \"exit_blocks\": [";
-        for (size_t i = 0; i < entry.second.ExitIDs.size(); ++i) {
-          Out << entry.second.ExitIDs[i];
-          if (i + 1 < entry.second.ExitIDs.size())
-            Out << ", ";
-        }
-        Out << "]\n    }";
-      }
-      Out << "\n  ]\n}\n";
-      Out.close();
-    }
+    // 4. Append the CFG information to the specified file
+    appendCFGInfo(M);
 
     return PreservedAnalyses::none();
   }
 };
 
-// Registration for the new pass manager.
+// Registration for the new pass manager
 llvm::PassPluginLibraryInfo getCodeCoveragePassPluginInfo() {
-  return {LLVM_PLUGIN_API_VERSION, "CodeCoveragePass", LLVM_VERSION_STRING,
-          [](PassBuilder &PB) {
+    return {
+        LLVM_PLUGIN_API_VERSION, "CodeCoveragePass", LLVM_VERSION_STRING,
+        [](PassBuilder &PB) {
+            // Register for explicit pass pipeline use
             PB.registerPipelineParsingCallback(
                 [](StringRef Name, ModulePassManager &MPM,
                    ArrayRef<PassBuilder::PipelineElement>) {
-                  if (Name == "code-coverage-pass") {
-                    MPM.addPass(CodeCoveragePass());
-                    return true;
-                  }
-                  return false;
+                    if (Name == "code-coverage-pass") {
+                        MPM.addPass(CodeCoveragePass());
+                        return true;
+                    }
+                    return false;
                 });
-          }};
+
+            // Register to run before any optimizations
+            PB.registerOptimizerEarlyEPCallback(
+                [](ModulePassManager &MPM, OptimizationLevel Level) {
+                    MPM.addPass(CodeCoveragePass());
+                });
+        }};
 }
 
 extern "C" LLVM_ATTRIBUTE_WEAK ::llvm::PassPluginLibraryInfo llvmGetPassPluginInfo() {
-  return getCodeCoveragePassPluginInfo();
+    return getCodeCoveragePassPluginInfo();
 }

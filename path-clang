@@ -1,0 +1,40 @@
+#!/bin/bash
+# clang-instr.sh: A wrapper for clang that adds path coverage instrumentation
+#
+# Usage: Set CC=/path/to/clang-instr.sh before running make
+
+set -e
+
+# Get the directory containing this script
+SCRIPT_DIR="$HOME/path-cov-instr"
+
+# Coverage data directory setup
+COVERAGE_DIR="$HOME/.coverage_data"
+mkdir -p "$COVERAGE_DIR"
+
+# Set up environment variables for the instrumentation pass
+export BLOCK_COUNTER_FILE="$COVERAGE_DIR/block_counter.txt"
+export CFG_FILE="$COVERAGE_DIR/coverage.json"
+
+# Initialize block counter if needed
+if [ ! -f "$BLOCK_COUNTER_FILE" ]; then
+    echo "0" > "$BLOCK_COUNTER_FILE"
+fi
+
+# Initialize CFG file if needed
+if [ ! -f "$CFG_FILE" ]; then
+    echo "{" > "$CFG_FILE"
+    echo "  \"modules\": [" >> "$CFG_FILE"
+fi
+
+# Use CLANG env var if set, otherwise default to clang-19
+: ${CLANG:=clang-19}
+
+# Check if this is a compilation-only command
+if [[ " $@ " =~ " -c " ]] || [[ " $@ " =~ " -S " ]] || [[ " $@ " =~ " -E " ]]; then
+    # Compilation only - just add the plugin
+    exec "$CLANG" -fpass-plugin="$SCRIPT_DIR/libCodeCoveragePass.so" "$@"
+else
+    # Linking - add both plugin and runtime
+    exec "$CLANG" -fpass-plugin="$SCRIPT_DIR/libCodeCoveragePass.so" "$@" "$SCRIPT_DIR/coverage_runtime.o"
+fi

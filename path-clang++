@@ -1,0 +1,14 @@
+#!/bin/bash
+# clang++-instr.sh: C++ wrapper for path coverage instrumentation
+# This is just a wrapper around clang-instr.sh that sets C++ mode
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+C_WRAPPER="$SCRIPT_DIR/path-clang"
+
+if [ ! -f "$C_WRAPPER" ]; then
+    echo "Error: Cannot find path-clang.sh in the same directory" >&2
+    exit 1
+fi
+
+# Forward to path-clang.sh with C++ mode
+CLANG=clang++-19 exec "$C_WRAPPER" "$@"

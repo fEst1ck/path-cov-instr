@@ -5,7 +5,7 @@
 This project implements an LLVM pass that instruments programs to collect runtime code coverage information and static control-flow graph (CFG) data. The instrumentation pass operates by:
 
 - **Basic Block Instrumentation:**  
-  Each basic block in the program is assigned a unique 32-bit identifier. At runtime, an instrumentation call is inserted at the beginning of every basic block. This call (to the helper function `__coverage_push`) pushes the block’s unique ID into a shared memory trace.
+  Each basic block in the program is assigned a unique 32-bit identifier. At runtime, an instrumentation call is inserted at the beginning of every basic block. This call (to the helper function `__coverage_push`) pushes the block's unique ID into a shared memory trace.
 
 - **CFG Data Collection:**  
   In addition to runtime trace collection, the pass analyzes each function to record:
@@ -16,93 +16,94 @@ This project implements an LLVM pass that instruments programs to collect runtim
 
 ## Runtime Trace and CFG Data
 
-### Shared Memory Trace
+### Coverage Data Storage
 
-- **Shared Memory Layout:**  
-  The instrumentation runtime expects a fixed-size shared memory region (4KB). The layout is as follows:
-  - **Index 0:** Contains the trace length (i.e., the number of basic block IDs recorded).
-  - **Indexes 1 to N:** Contain the sequence of executed basic block IDs in the order they were encountered.
+- **Block Counter:**  
+  A global counter file keeps track of basic block IDs to ensure uniqueness across multiple compilation units.
+
+- **CFG Data:**  
+  CFG information is collected in a JSON file that accumulates data from all compiled modules.
 
 - **Thread Safety:**  
-  The push operation is implemented using atomic operations (via a C helper function) so that the trace remains consistent even in a multi-threaded environment.
+  File locking mechanisms ensure thread safety during parallel compilation.
 
 ### CFG Data Output
 
 - **Output File:**  
-  The pass writes CFG information into a JSON file named `cfg.json`.
+  The pass writes CFG information into a JSON file (default: `$HOME/.coverage_data/coverage.json`).
 
 - **JSON Format Example:**
 
 ```json
 {
-  "functions": [
+  "modules": [
     {
-      "name": "foo",
-      "entry_block": 42,
-      "exit_blocks": [43, 44]
-    },
-    {
-      "name": "bar",
-      "entry_block": 100,
-      "exit_blocks": [101]
+      "module_name": "example.c",
+      "functions": [
+        {
+          "name": "foo",
+          "entry_block": 42,
+          "exit_blocks": [43, 44]
+        }
+      ]
     }
   ]
 }
 ```
 
-Each function is identified by its name, along with its entry block ID and a list of exit block IDs.
-
 ## Compilation and Usage
 
 ### 1. Build the Instrumentation Pass Plugin
 
-The pass is implemented in `CodeCoveragePass.cpp`. To compile it as a shared library (using LLVM 19), run:
+The pass is implemented in `CodeCoveragePass.cpp`. To compile it as a shared library (using LLVM 19):
 
 ```bash
-clang++-19 -fPIC -shared CodeCoveragePass.cpp -o libCodeCoveragePass.so `llvm-config-19 --cxxflags --ldflags --system-libs --libs all`
+clang++ -fPIC -shared CodeCoveragePass.cpp -o libCodeCoveragePass.so `llvm-config --cxxflags --ldflags --system-libs --libs all`
 ```
 
 ### 2. Build the Runtime Support Library
 
-The runtime helper (implemented in `coverage_runtime.c`) provides the `__coverage_push(uint32_t block_id)` function. Compile it as follows:
+Compile the runtime helper:
 
 ```bash
-clang-19 -O0 -c coverage_runtime.c -o coverage_runtime.o
+clang -O0 -c coverage_runtime.c -o coverage_runtime.o
 ```
 
-### 3. Compile Your Program with Instrumentation
+### 3. Using the Instrumentation Scripts
 
-To build and instrument your project without modifying its Makefile:
+Two wrapper scripts are provided for easy integration:
 
-1. **Build the Instrumentation Components:**
-   - **Instrumentation Pass Plugin:**  
-     ```bash
-     clang++-19 -fPIC -shared CodeCoveragePass.cpp -o libCodeCoveragePass.so `llvm-config-19 --cxxflags --ldflags --system-libs --libs all`
-     ```
-   - **Runtime Helper:**  
-     ```bash
-     clang-19 -O0 -c coverage_runtime.c -o coverage_runtime.o
-     ```
-2. **Set Environment Variables:**  
-   In your shell, run:
-   ```bash
-   export CC=/full/path/to/clang_instrument.sh
-   ```
+#### For C Projects (`clang-instr.sh`):
+```bash
+# Set as your C compiler
+export CC=/path/to/clang-instr.sh
 
-### 4. How to Run Instrumented Programs and Get the Trace
+# Or use directly
+./clang-instr.sh -O2 -c example.c -o example.o
+```
 
-Below is an example showing how to get the collected trace.
+#### For C++ Projects (`clang++-instr.sh`):
+```bash
+# Set as your C++ compiler
+export CXX=/path/to/clang++-instr.sh
 
-1. **Initialize Shared Memory:**  
-   Run the provided utility (e.g., `init_shm`) to create and initialize a shared memory file (e.g., `/tmp/coverage_shm.bin`) of 4KB filled with zeros.
+# Or use directly
+./clang++-instr.sh -O2 -c example.cpp -o example.o
+```
 
-2. **Run the Instrumented Program:**  
-   Execute `instrumented_program` with the required input. The runtime helper will map the shared memory file and record the execution trace.
+Both scripts support:
+- Individual file compilation (`-c`)
+- Full program linking
+- All standard compiler flags
+- Parallel compilation (e.g., with `make -j`)
 
-3. **Retrieve the Trace:**  
-   Run the provided trace reader utility (e.g., `read_shm`) to print the collected trace. The utility reads:
-   - The trace length from index 0.
-   - The subsequent basic block IDs from the shared memory region.
+### Environment Variables
+
+The instrumentation uses these environment variables (automatically set by the scripts):
+- `BLOCK_COUNTER_FILE`: Path to the global block ID counter
+- `CFG_FILE`: Path to the CFG JSON file
+
+Default location: `$HOME/.coverage_data/`
 
 ## Appendix: Understanding LLVM IR and API Usage
 
@@ -134,7 +135,7 @@ LLVM IR is a low-level, platform-independent intermediate representation designe
 Our instrumentation pass leverages several LLVM APIs:
 
 - **ModulePass / PassInfoMixin:**  
-  The pass is implemented as a module-level pass using LLVM’s new pass manager. By subclassing `PassInfoMixin<YourPass>`, the pass implements:
+  The pass is implemented as a module-level pass using LLVM's new pass manager. By subclassing `PassInfoMixin<YourPass>`, the pass implements:
 
   ```cpp
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
@@ -166,6 +167,6 @@ Our instrumentation pass leverages several LLVM APIs:
   Although our pass delegates atomic updates to a runtime helper, LLVM provides APIs (such as `CreateAtomicRMW`) for generating atomic instructions directly in IR if inline atomic operations are desired.
 
 - **File I/O:**  
-  To output CFG information, the pass uses `raw_fd_ostream` to write a JSON file (`cfg.json`) containing each function’s entry block and exit blocks.
+  To output CFG information, the pass uses `raw_fd_ostream` to write a JSON file (`cfg.json`) containing each function's entry block and exit blocks.
 
 Understanding these LLVM concepts and APIs helps in grasping the design and implementation of our instrumentation pass, and offers insights into how similar passes can be developed and extended.
