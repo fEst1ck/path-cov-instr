@@ -73,22 +73,22 @@ clang -O0 -c coverage_runtime.c -o coverage_runtime.o
 
 Two wrapper scripts are provided for easy integration:
 
-#### For C Projects (`clang-instr.sh`):
+#### For C Projects (`path-clang`):
 ```bash
 # Set as your C compiler
-export CC=/path/to/clang-instr.sh
+export CC=/path/to/path-clang
 
 # Or use directly
-./clang-instr.sh -O2 -c example.c -o example.o
+./path-clang -O2 -c example.c -o example.o
 ```
 
-#### For C++ Projects (`clang++-instr.sh`):
+#### For C++ Projects (`path-clang++`):
 ```bash
 # Set as your C++ compiler
-export CXX=/path/to/clang++-instr.sh
+export CXX=/path/to/path-clang++
 
 # Or use directly
-./clang++-instr.sh -O2 -c example.cpp -o example.o
+./path-clang++ -O2 -c example.cpp -o example.o
 ```
 
 Both scripts support:
