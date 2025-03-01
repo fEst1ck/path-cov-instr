@@ -7,7 +7,7 @@
 #include <stdlib.h>
 
 #define SHM_FILE "/tmp/coverage_shm.bin"
-#define SHM_SIZE_BYTES 4096
+#define SHM_SIZE_BYTES (512 * 1024 * 1024)
 #define NUM_ENTRIES (SHM_SIZE_BYTES / 4)
 #define MAX_TRACE_ENTRIES (NUM_ENTRIES - 1)
 

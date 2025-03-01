@@ -5,7 +5,7 @@
 #include <stdint.h>
 
 #define SHM_FILE "/tmp/coverage_shm.bin"
-#define SHM_SIZE_BYTES 4096
+#define SHM_SIZE_BYTES (512 * 1024 * 1024)
 
 int main() {
     int fd = open(SHM_FILE, O_RDONLY);
