@@ -23,8 +23,7 @@ fi
 
 # Initialize CFG file if needed
 if [ ! -f "$CFG_FILE" ]; then
-    echo "{" > "$CFG_FILE"
-    echo "  \"modules\": [" >> "$CFG_FILE"
+    touch "$CFG_FILE"
 fi
 
 # Use CLANG env var if set, otherwise default to clang-19
