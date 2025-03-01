@@ -103,21 +103,12 @@ struct CodeCoveragePass : public PassInfoMixin<CodeCoveragePass> {
     if (cfgFile.empty()) return;
 
     std::error_code EC;
-    bool isNewFile = !sys::fs::exists(cfgFile);
     
     // Open file in append mode
     raw_fd_ostream Out(cfgFile, EC, sys::fs::OF_Append | sys::fs::OF_Text);
     if (EC) {
       errs() << "Error opening CFG file for writing: " << EC.message() << "\n";
       return;
-    }
-
-    // If this is a new file, write the opening bracket
-    if (isNewFile) {
-      Out << "{\n  \"modules\": [\n";
-    } else {
-      // If not a new file, add a comma for the new module
-      Out << ",\n";
     }
 
     // Write module information
@@ -141,7 +132,7 @@ struct CodeCoveragePass : public PassInfoMixin<CodeCoveragePass> {
       }
       Out << "]\n        }";
     }
-    Out << "\n      ]\n    }";
+    Out << "\n      ]\n    }\n";
     
     Out.close();
   }
