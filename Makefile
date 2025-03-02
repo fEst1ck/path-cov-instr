@@ -24,7 +24,7 @@ all: $(PASS_LIB) $(RUNTIME_OBJ) $(UTILS)
 
 # Build the instrumentation pass
 $(PASS_LIB): CodeCoveragePass.cpp
-	$(CXX) $(CXXFLAGS) -shared $< -o $@ $(LLVM_FLAGS)
+	$(CXX) $(CXXFLAGS) -fPIC -shared $< -o $@ $(LLVM_FLAGS)
 
 # Build the runtime
 $(RUNTIME_OBJ): coverage_runtime.c
