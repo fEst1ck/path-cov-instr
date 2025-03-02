@@ -6,10 +6,10 @@
 set -e
 
 # Get the directory containing this script
-SCRIPT_DIR="$HOME/path-cov-instr"
+SCRIPT_DIR="/path-cov-instr"
 
 # Coverage data directory setup
-COVERAGE_DIR="$HOME/.coverage_data"
+COVERAGE_DIR="/.coverage_data"
 mkdir -p "$COVERAGE_DIR"
 
 # Set up environment variables for the instrumentation pass
