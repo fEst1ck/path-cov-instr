@@ -27,8 +27,18 @@ static void map_shared_memory() {
     if (coverage_shm) return;
     int fd = open(SHM_FILE, O_RDWR);
     if (fd < 0) {
-        perror("open");
-        exit(1);
+        // Try to create the file if it doesn't exist
+        fd = open(SHM_FILE, O_RDWR | O_CREAT, 0666);
+        if (fd < 0) {
+            perror("open");
+            exit(1);
+        }
+        // Extend to desired size
+        if (ftruncate(fd, SHM_SIZE_BYTES) != 0) {
+            perror("ftruncate");
+            close(fd);
+            exit(1);
+        }
     }
     coverage_shm = (uint32_t *)mmap(NULL, SHM_SIZE_BYTES, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
     if (coverage_shm == MAP_FAILED) {
