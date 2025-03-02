@@ -28,7 +28,7 @@ $(PASS_LIB): CodeCoveragePass.cpp
 
 # Build the runtime
 $(RUNTIME_OBJ): coverage_runtime.c
-	$(CC) $(CFLAGS) -O0 -c $< -o $@
+	$(CC) $(CFLAGS) -O0 -c -fPIC $< -o $@
 
 # Build shared memory utilities
 init_shm: init_shm.c
