@@ -1,4 +1,4 @@
-# LLVM Code Coverage Instrumentation Pass (WIP)
+# LLVM Code Coverage Instrumentation Pass
 
 ## Overview
 
