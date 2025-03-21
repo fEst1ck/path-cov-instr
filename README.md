@@ -2,7 +2,9 @@
 
 ## Overview
 
-This project implements an LLVM pass that instruments programs to collect runtime code coverage information and static control-flow graph (CFG) data. The instrumentation pass operates by:
+This project implements an LLVM pass that instruments programs to collect runtime code coverage information and static control-flow graph (CFG) data. This instrumentation was originally developed for an [experimental fuzzer](https://github.com/fEst1ck/coverage-playground).
+
+Our pass operates by:
 
 - **Basic Block Instrumentation:**
   Each basic block in the program is assigned a unique 32-bit identifier. At runtime, an instrumentation call is inserted at the beginning of every basic block. This call (to the helper function `__coverage_push`) pushes the block's unique ID into a shared memory trace.
