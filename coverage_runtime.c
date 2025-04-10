@@ -5,8 +5,9 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
-#define SHM_FILE "/tmp/coverage_shm.bin"
+#define SHM_BASE "/tmp/coverage_shm"
 #define SHM_SIZE_BYTES (512 * 1024 * 1024)
 #define NUM_ENTRIES (SHM_SIZE_BYTES / 4)
 #define MAX_TRACE_ENTRIES (NUM_ENTRIES - 1)
@@ -25,10 +26,20 @@ uint32_t *coverage_shm = 0;
 // Helper function to map the shared memory file.
 static void map_shared_memory() {
     if (coverage_shm) return;
-    int fd = open(SHM_FILE, O_RDWR);
+    
+    // Get FUZZER_ID from environment
+    const char* fuzzer_id = getenv("FUZZER_ID");
+    char shm_file[256] = {0};
+
+    if (fuzzer_id) {
+        snprintf(shm_file, sizeof(shm_file), "%s_%s.bin", SHM_BASE, fuzzer_id);
+    } else {
+        snprintf(shm_file, sizeof(shm_file), "%s.bin", SHM_BASE);
+    }
+    int fd = open(shm_file, O_RDWR);
     if (fd < 0) {
         // Try to create the file if it doesn't exist
-        fd = open(SHM_FILE, O_RDWR | O_CREAT, 0666);
+        fd = open(shm_file, O_RDWR | O_CREAT, 0666);
         if (fd < 0) {
             perror("open");
             exit(1);
