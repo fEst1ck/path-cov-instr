@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <stdlib.h>
 
 #define DEFAULT_SHM_FILE "/tmp/coverage_shm.bin"
 #define SHM_FILE (getenv("COVERAGE_SHM_FILE") != NULL ? getenv("COVERAGE_SHM_FILE") : DEFAULT_SHM_FILE)
