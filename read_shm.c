@@ -4,7 +4,8 @@
 #include <unistd.h>
 #include <stdint.h>
 
-#define SHM_FILE "/tmp/coverage_shm.bin"
+#define DEFAULT_SHM_FILE "/tmp/coverage_shm.bin"
+#define SHM_FILE (getenv("COVERAGE_SHM_FILE") != NULL ? getenv("COVERAGE_SHM_FILE") : DEFAULT_SHM_FILE)
 #define SHM_SIZE_BYTES (512 * 1024 * 1024)
 
 int main() {

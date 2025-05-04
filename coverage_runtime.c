@@ -7,7 +7,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define SHM_BASE "/tmp/coverage_shm"
+#define DEFAULT_SHM_BASE "/tmp/coverage_shm"
+#define SHM_BASE (getenv("COVERAGE_SHM_BASE") != NULL ? getenv("COVERAGE_SHM_BASE") : DEFAULT_SHM_BASE)
 #define SHM_SIZE_BYTES (512 * 1024 * 1024)
 #define NUM_ENTRIES (SHM_SIZE_BYTES / 4)
 #define MAX_TRACE_ENTRIES (NUM_ENTRIES - 1)
