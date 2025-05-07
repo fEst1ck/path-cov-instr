@@ -29,6 +29,7 @@ struct CodeCoveragePass : public PassInfoMixin<CodeCoveragePass> {
   struct CFGInfo {
     unsigned EntryID;
     std::vector<unsigned> ExitIDs;
+    std::vector<unsigned> AllBlockIDs;  // Add this to store all block IDs
   };
   std::map<std::string, CFGInfo> FunctionCFG;
 
@@ -130,6 +131,13 @@ struct CodeCoveragePass : public PassInfoMixin<CodeCoveragePass> {
         if (i + 1 < entry.second.ExitIDs.size())
           Out << ", ";
       }
+      Out << "],\n";
+      Out << "          \"all_blocks\": [";
+      for (size_t i = 0; i < entry.second.AllBlockIDs.size(); ++i) {
+        Out << entry.second.AllBlockIDs[i];
+        if (i + 1 < entry.second.AllBlockIDs.size())
+          Out << ", ";
+      }
       Out << "]\n        }";
     }
     Out << "\n      ]\n    }\n";
@@ -153,6 +161,8 @@ struct CodeCoveragePass : public PassInfoMixin<CodeCoveragePass> {
           cfg.EntryID = blockID;
           firstBlock = false;
         }
+        // Add block ID to the list of all blocks
+        cfg.AllBlockIDs.push_back(blockID);
         // A block is considered an exit if its terminator is a return, resume, or unreachable.
         Instruction *TI = BB.getTerminator();
         if (isa<ReturnInst>(TI) || isa<ResumeInst>(TI) || isa<UnreachableInst>(TI))
