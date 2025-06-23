@@ -98,51 +98,86 @@ struct CodeCoveragePass : public PassInfoMixin<CodeCoveragePass> {
     return currentID - 1;  // Return the ID we're using (not the next one)
   }
 
-  // Append CFG information to the CFG file
+  // Append CFG information to the CFG file with proper locking
   void appendCFGInfo(const Module &M) {
     std::string cfgFile = getEnvVar("CFG_FILE");
     if (cfgFile.empty()) return;
 
-    std::error_code EC;
-    
-    // Open file in append mode
-    raw_fd_ostream Out(cfgFile, EC, sys::fs::OF_Append | sys::fs::OF_Text);
-    if (EC) {
-      errs() << "Error opening CFG file for writing: " << EC.message() << "\n";
+    // Open the file for reading and writing
+    int fd = open(cfgFile.c_str(), O_RDWR | O_CREAT, 0666);
+    if (fd == -1) {
+      errs() << "Error: Cannot open CFG file: " << cfgFile << "\n";
       return;
     }
 
-    // Write module information
-    Out << "    {\n";
-    Out << "      \"module_name\": \"" << M.getName().str() << "\",\n";
-    Out << "      \"functions\": [\n";
+    // Create file lock structure
+    struct flock fl;
+    fl.l_type = F_WRLCK;    // Write lock
+    fl.l_whence = SEEK_SET;  // From beginning of file
+    fl.l_start = 0;          // Offset from l_whence
+    fl.l_len = 0;           // Lock whole file
+    fl.l_pid = getpid();    // Process ID
+
+    // Acquire exclusive lock
+    if (fcntl(fd, F_SETLKW, &fl) == -1) {
+      errs() << "Error: Cannot lock CFG file\n";
+      close(fd);
+      return;
+    }
+
+    // Seek to end of file for appending
+    off_t fileSize = lseek(fd, 0, SEEK_END);
+    if (fileSize == -1) {
+      errs() << "Error: Cannot seek to end of CFG file\n";
+      fl.l_type = F_UNLCK;
+      fcntl(fd, F_SETLK, &fl);
+      close(fd);
+      return;
+    }
+
+    // Prepare the JSON content to write
+    std::string jsonContent;
+    jsonContent += "    {\n";
+    jsonContent += "      \"module_name\": \"" + M.getName().str() + "\",\n";
+    jsonContent += "      \"functions\": [\n";
     
     bool firstFunc = true;
     for (auto &entry : FunctionCFG) {
       if (!firstFunc)
-        Out << ",\n";
+        jsonContent += ",\n";
       firstFunc = false;
-      Out << "        {\n";
-      Out << "          \"name\": \"" << entry.first << "\",\n";
-      Out << "          \"entry_block\": " << entry.second.EntryID << ",\n";
-      Out << "          \"exit_blocks\": [";
+      jsonContent += "        {\n";
+      jsonContent += "          \"name\": \"" + entry.first + "\",\n";
+      jsonContent += "          \"entry_block\": " + std::to_string(entry.second.EntryID) + ",\n";
+      jsonContent += "          \"exit_blocks\": [";
       for (size_t i = 0; i < entry.second.ExitIDs.size(); ++i) {
-        Out << entry.second.ExitIDs[i];
+        jsonContent += std::to_string(entry.second.ExitIDs[i]);
         if (i + 1 < entry.second.ExitIDs.size())
-          Out << ", ";
+          jsonContent += ", ";
       }
-      Out << "],\n";
-      Out << "          \"all_blocks\": [";
+      jsonContent += "],\n";
+      jsonContent += "          \"all_blocks\": [";
       for (size_t i = 0; i < entry.second.AllBlockIDs.size(); ++i) {
-        Out << entry.second.AllBlockIDs[i];
+        jsonContent += std::to_string(entry.second.AllBlockIDs[i]);
         if (i + 1 < entry.second.AllBlockIDs.size())
-          Out << ", ";
+          jsonContent += ", ";
       }
-      Out << "]\n        }";
+      jsonContent += "]\n        }";
     }
-    Out << "\n      ]\n    }\n";
-    
-    Out.close();
+    jsonContent += "\n      ]\n    }\n";
+
+    // Write the content atomically
+    ssize_t bytesWritten = write(fd, jsonContent.c_str(), jsonContent.length());
+    if (bytesWritten != static_cast<ssize_t>(jsonContent.length())) {
+      errs() << "Error: Failed to write complete CFG data\n";
+    }
+
+    // Release the lock
+    fl.l_type = F_UNLCK;
+    fcntl(fd, F_SETLK, &fl);
+
+    // Close file
+    close(fd);
   }
 
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &) {
