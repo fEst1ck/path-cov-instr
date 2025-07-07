@@ -6,7 +6,7 @@
 set -e
 
 # Get the directory containing this script
-SCRIPT_DIR="/"
+SCRIPT_DIR="$FUZZER"
 
 # Coverage data directory setup
 : ${COVERAGE_DIR:="/.coverage_data"}
