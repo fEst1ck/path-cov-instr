@@ -28,6 +28,7 @@ fi
 
 # Use CLANG env var if set, otherwise default to clang-19
 : ${CLANG:=clang-19}
+GCC_TOOLCHAIN="/usr"
 
 # Detect if we're in compile-only mode (-c, -S, -E)
 compile_only=false
