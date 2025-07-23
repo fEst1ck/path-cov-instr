@@ -29,9 +29,18 @@ fi
 # Use CLANG env var if set, otherwise default to clang-19
 : ${CLANG:=clang-19}
 
-# Check if this is a compilation-only command
-if [[ " $@ " =~ " -c " ]] || [[ " $@ " =~ " -S " ]] || [[ " $@ " =~ " -E " ]]; then
-    # Compilation only - just add the plugin
+# Detect if we're in compile-only mode (-c, -S, -E)
+compile_only=false
+for arg in "$@"; do
+  case "$arg" in
+    -c|-S|-E)
+      compile_only=true
+      break
+      ;;
+  esac
+done
+
+if $compile_only; then
     exec "$CLANG" -fpass-plugin="$SCRIPT_DIR/libCodeCoveragePass.so" "$@"
 else
     # Linking - add both plugin and runtime
