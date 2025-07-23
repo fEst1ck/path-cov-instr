@@ -42,8 +42,8 @@ for arg in "$@"; do
 done
 
 if $compile_only; then
-    exec "$CLANG" -fpass-plugin="$SCRIPT_DIR/libCodeCoveragePass.so" "$@"
+    exec "$CLANG" --gcc-toolchain="$GCC_TOOLCHAIN" -fpass-plugin="$SCRIPT_DIR/libCodeCoveragePass.so" "$@"
 else
     # Linking - add both plugin and runtime
-    exec "$CLANG" -fpass-plugin="$SCRIPT_DIR/libCodeCoveragePass.so" "$@" "$SCRIPT_DIR/coverage_runtime.o"
+    exec "$CLANG" --gcc-toolchain="$GCC_TOOLCHAIN" -fpass-plugin="$SCRIPT_DIR/libCodeCoveragePass.so" "$@" "$SCRIPT_DIR/coverage_runtime.o"
 fi
