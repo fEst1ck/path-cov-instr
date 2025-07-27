@@ -67,7 +67,9 @@ void __coverage_push(uint32_t block_id) {
     // Atomically increment the trace length (stored at index 0).
     uint32_t index = atomic_fetch_add((_Atomic uint32_t*)coverage_shm, 1);
     if (index < MAX_TRACE_ENTRIES) {
-        printf("pushing block_id: %d\n", block_id);
+        if (getenv("COVERAGE_DEBUG")) {
+            printf("pushing block_id: %d\n", block_id);
+        }
         coverage_shm[index + 1] = block_id;
     }
 }
