@@ -37,6 +37,11 @@ static void map_shared_memory() {
     } else {
         snprintf(shm_file, sizeof(shm_file), "%s.bin", SHM_BASE);
     }
+
+    if (getenv("COVERAGE_DEBUG")) {
+        fprintf(stderr, "mapping shared memory file: %s\n", shm_file);
+    }
+
     int fd = open(shm_file, O_RDWR);
     if (fd < 0) {
         // Try to create the file if it doesn't exist
