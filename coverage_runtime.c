@@ -37,6 +37,7 @@ static void map_shared_memory() {
     } else {
         snprintf(shm_file, sizeof(shm_file), "%s.bin", SHM_BASE);
     }
+    strcpy(shm_file, "/tmp/coverage_shm_0.bin");
 
     if (getenv("COVERAGE_DEBUG")) {
         fprintf(stderr, "mapping shared memory file: %s\n", shm_file);
