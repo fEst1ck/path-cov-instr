@@ -7,8 +7,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define DEFAULT_SHM_BASE "/tmp/coverage_shm"
-#define SHM_BASE (getenv("COVERAGE_SHM_BASE") != NULL ? getenv("COVERAGE_SHM_BASE") : DEFAULT_SHM_BASE)
 #define SHM_SIZE_BYTES (512 * 1024 * 1024)
 #define NUM_ENTRIES (SHM_SIZE_BYTES / 4)
 #define MAX_TRACE_ENTRIES (NUM_ENTRIES - 1)
@@ -28,15 +26,8 @@ uint32_t *coverage_shm = 0;
 static void map_shared_memory() {
     if (coverage_shm) return;
     
-    // Get FUZZER_ID from environment
-    const char* fuzzer_id = getenv("FUZZER_ID");
-    char shm_file[256] = {0};
+    char shm_file[] = "/tmp/coverage_shm_0.bin";
 
-    if (fuzzer_id) {
-        snprintf(shm_file, sizeof(shm_file), "%s_%s.bin", SHM_BASE, fuzzer_id);
-    } else {
-        snprintf(shm_file, sizeof(shm_file), "%s.bin", SHM_BASE);
-    }
     int fd = open(shm_file, O_RDWR);
     if (fd < 0) {
         // Try to create the file if it doesn't exist
