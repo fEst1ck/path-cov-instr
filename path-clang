@@ -9,7 +9,7 @@ set -e
 SCRIPT_DIR="$(dirname "$0")"
 
 # Coverage data directory setup
-: ${COVERAGE_DIR:="/.coverage_data"}
+: ${COVERAGE_DIR:="$HOME/.coverage_data"}
 mkdir -p "$COVERAGE_DIR"
 
 # Set up environment variables for the instrumentation pass

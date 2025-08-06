@@ -7,7 +7,7 @@ This project implements an LLVM pass that instruments programs to collect execut
 Our pass operates by:
 
 - **Basic Block Instrumentation:**
-  Each basic block in the program is assigned a globally unique 32-bit identifier. An instrumentation call is inserted at the beginning of every basic block. The call pushes the block's unique ID into a shared memory trace. See `coverage_runtime.c:__coverage_push`.
+  Each basic block in the program is assigned a globally unique 32-bit identifier. An instrumentation call is inserted at the beginning of every basic block. The call pushes the block's unique ID into a piece of shared memory. See `coverage_runtime.c:__coverage_push`.
 
 - **CFG Data Collection:**
   In addition to runtime trace collection, the pass analyzes each function to record:
@@ -16,25 +16,84 @@ Our pass operates by:
 
   This CFG information is output during compilation into a text file for external analysis.
 
-## Runtime Trace and CFG Data
+## Get started
 
-### Coverage Data Storage
+### Build
 
-- **Block Counter:**
-  A global counter file keeps track of basic block IDs to ensure uniqueness across multiple compilation units.
+The project includes a Makefile to build the instrumentation pass, runtime, and utilities:
 
-- **CFG Data:**
-  CFG information is collected in a JSON file that accumulates data from all compiled modules.
+```bash
+# Build everything
+make
 
-- **Thread Safety:**
-  File locking mechanisms ensure thread safety during parallel compilation.
+# Or build components individually
+make libCodeCoveragePass.so  # Just the pass
+make coverage_runtime.o      # Just the runtime
+make init_shm                # Shared memory initialization utility
+make read_shm                # Shared memory reading utility
 
-### CFG Data Output
+# Clean build artifacts
+make clean
+```
 
-- **Output File:**
-  The pass writes CFG information into a file of a sequence of JSON objects (default: `$HOME/.coverage_data/coverage.json`, not really JSON though).
+### Instrumentation
 
-- **Example:**
+Simply set the environment variables and run `make`:
+```bash
+export CC=/path/to/path-clang
+export CXX=/path/to/path-clang++
+make
+```
+
+Or use directly:
+```bash
+./path-clang -O2 -c example.c -o example.o
+```
+
+### Running Instrumented Programs
+
+We provide utility programs for printing the collected execution trace. This is an easy way to check if a program is properly instrumented.
+
+1. **Initialize Shared Memory:**
+   ```bash
+   ./init_shm
+   ```
+   This creates a shared memory segment for storing the execution trace.
+
+2. **Run Your Instrumented Program:**
+   ```bash
+   ./your_program [args...]
+   ```
+   The program will record basic block execution in the shared memory.
+
+3. **Read the Execution Trace:**
+   ```bash
+   ./read_shm
+   ```
+   This displays the sequence of executed basic blocks.
+
+## The Collected Execution Trace
+
+The instrumented program records its execution trace in a file based shared memory. The shared memory:
+
+- starts with a 32-bit counter at offset 0 indicating the number of blocks executed, and
+- followed by an array of 32-bit block IDs.
+
+The shared memory file is `/tmp/coverage_shm.bin` by default. It can be set by environment variables:
+- `COVERAGE_SHM_BASE`: Path to the base of the shared memory file.
+- `FUZZER_ID`: ID of the fuzzer instance.
+
+When `COVERAGE_SHM_BASE` is set, the shared memory file is `${COVERAGE_SHM_BASE}.bin`. If `FUZZER_ID` is also set, the shared memory file is `{COVERAGE_SHM_BASE}_{FUZZER_ID}.bin`.
+
+## CFG Data
+CFG information is collected in a text file that accumulates data from all compiled modules.
+The CFG file is set by environment variable `CFG_FILE`. When using `path-clang`, the CFG file is set to `$HOME/.coverage_data/coverage.json` by default. It can be configured by:
+
+- `COVERAGE_DIR`: Path to the directory where the coverage data is stored. The directory contains:
+  - `block_counter.txt`: global block ID counter
+  - `coverage.json`: the CFG data
+
+- **Example CFG Data:**
 
 ```json
 {
@@ -58,67 +117,3 @@ Our pass operates by:
   ]
 }
 ```
-
-## Compilation and Usage
-
-### 1. Build the Components
-
-The project includes a Makefile to build the instrumentation pass, runtime, and utilities:
-
-```bash
-# Build everything
-make
-
-# Or build components individually
-make libCodeCoveragePass.so  # Just the pass
-make coverage_runtime.o      # Just the runtime
-make init_shm                # Shared memory initialization utility
-make read_shm                # Shared memory reading utility
-
-# Clean build artifacts
-make clean
-```
-
-### 2. Using the Instrumentation Scripts
-
-Simply set the environment variables and run `make`:
-```bash
-export CC=/path/to/path-clang
-export CXX=/path/to/path-clang++
-make
-```
-
-Or use directly:
-```bash
-./path-clang -O2 -c example.c -o example.o
-```
-
-### 3. Running Instrumented Programs
-
-We provide utility programs for printing the collected execution trace. This is an easy way to check if a program is properly instrumented.
-
-1. **Initialize Shared Memory:**
-   ```bash
-   ./init_shm
-   ```
-   This creates a shared memory segment for storing the execution trace.
-
-2. **Run Your Instrumented Program:**
-   ```bash
-   ./your_program [args...]
-   ```
-   The program will record basic block execution in the shared memory.
-
-3. **Read the Execution Trace:**
-   ```bash
-   ./read_shm
-   ```
-   This displays the sequence of executed basic blocks.
-
-### Environment Variables
-
-The instrumentation uses these environment variables (automatically set by the scripts):
-- `BLOCK_COUNTER_FILE`: Path to the global block ID counter
-- `CFG_FILE`: Path to the CFG JSON file
-
-Default location: `$HOME/.coverage_data/`
