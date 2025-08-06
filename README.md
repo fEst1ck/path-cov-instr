@@ -117,3 +117,7 @@ The CFG file is set by environment variable `CFG_FILE`. When using `path-clang`,
   ]
 }
 ```
+
+## Dependencies
+
+- LLVM 19
