@@ -64,9 +64,7 @@ void __coverage_push(uint32_t block_id) {
     if (!coverage_shm) {
         map_shared_memory();
     }
-    // Atomically increment the trace length (stored at index 0).
-    uint32_t index = atomic_fetch_add((_Atomic uint32_t*)coverage_shm, 1);
     if (index < MAX_TRACE_ENTRIES) {
-        coverage_shm[index + 1] = block_id;
+        coverage_shm[++*coverage_shm] = block_id;
     }
 }
