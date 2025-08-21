@@ -24,6 +24,9 @@ uint32_t *coverage_shm = 0;
 }
 #endif
 
+__attribute__((constructor))
+static void cov_init(void){ map_shared_memory(); }
+
 // Helper function to map the shared memory file.
 static void map_shared_memory() {
     if (coverage_shm) return;
@@ -60,10 +63,8 @@ static void map_shared_memory() {
     close(fd);
 }
 
+static inline __attribute__((always_inline, hot))
 void __coverage_push(uint32_t block_id) {
-    if (!coverage_shm) {
-        map_shared_memory();
-    }
     if (index < MAX_TRACE_ENTRIES) {
         coverage_shm[++*coverage_shm] = block_id;
     }
