@@ -63,7 +63,6 @@ static void map_shared_memory() {
 __attribute__((constructor))
 static void cov_init(void){ map_shared_memory(); }
 
-static inline __attribute__((always_inline, hot))
 void __coverage_push(uint32_t block_id) {
     if (index < MAX_TRACE_ENTRIES) {
         coverage_shm[++*coverage_shm] = block_id;
