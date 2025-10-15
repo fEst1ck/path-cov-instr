@@ -26,6 +26,7 @@ uint32_t *coverage_shm = 0;
 
 // Helper function to map the shared memory file.
 static void map_shared_memory() {
+    println!("shared memory mapped\n");
     if (coverage_shm) return;
     
     // Get FUZZER_ID from environment
